@@ -26,3 +26,9 @@ class ChatbotMessageRequestSerializer(serializers.Serializer):
     @property
     def business_model(self) -> BusinessModel:
         return BusinessModel.objects.get(key=self.validated_data['model_key'])
+
+
+class ChatbotRegenerateRequestSerializer(serializers.Serializer):
+    model_key = serializers.ChoiceField(choices=sorted(MODEL_HANDLER_CLASSES.keys()))
+    conversation_id = serializers.UUIDField()
+    assistant_message_id = serializers.UUIDField()

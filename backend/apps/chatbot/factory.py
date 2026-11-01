@@ -1,5 +1,5 @@
-from llm_gateway import LLMGateway
-from llm_gateway.providers.gemini import GeminiLLMProvider
+from gateways.llm import LLMGateway
+from gateways.llm.providers.gemini import GeminiLLMProvider
 
 from apps.chatbot.services import ChatbotService
 

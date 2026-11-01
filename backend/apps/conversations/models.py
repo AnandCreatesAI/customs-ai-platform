@@ -44,7 +44,8 @@ class Conversation(models.Model):
         on_delete=models.PROTECT,
         related_name='conversations',
     )
-    title = models.CharField(max_length=255, blank=True, default='New conversation')
+    title = models.CharField(max_length=255, blank=True, default='')
+    is_pinned = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -55,6 +56,7 @@ class Conversation(models.Model):
         verbose_name_plural = 'conversations'
         indexes = [
             models.Index(fields=['user', 'updated_at']),
+            models.Index(fields=['user', 'is_pinned', 'updated_at']),
             models.Index(fields=['business_model', 'created_at']),
         ]
 
@@ -122,3 +124,37 @@ class Message(models.Model):
                     walk(item)
 
         walk(metadata)
+
+
+class MessageFeedbackRating(models.IntegerChoices):
+    UP = 1, 'Up'
+    DOWN = -1, 'Down'
+
+
+class MessageFeedback(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name='feedback_entries',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='message_feedback',
+    )
+    rating = models.SmallIntegerField(choices=MessageFeedbackRating.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('message', 'user'),
+                name='conversations_messagefeedback_message_user_uniq',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['user', 'updated_at']),
+            models.Index(fields=['message']),
+        ]

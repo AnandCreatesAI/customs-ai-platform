@@ -20,6 +20,9 @@ env/
 db.sqlite3
 media/
 staticfiles/
+var/document_storage/
+var/extraction_artifacts/
+var/extraction_temp/
 
 # Node
 node_modules/

@@ -3,8 +3,13 @@ Document metadata persistence.
 
 Binary files are stored outside PostgreSQL; `file_path` holds the storage reference only.
 
-Future API layers must scope Document querysets to the authenticated user
-(for example, filter(user=request.user)).
+Future upload and document APIs (Phase 1+):
+- Resolve the owner from ``request.user`` only; never accept a client user id for ownership.
+- Filter querysets with ``Document.objects.filter(user=request.user)`` (and business_model as needed).
+- Verify ``business_model`` on create/read/delete matches the user's intent; do not rely on frontend filtering.
+- Storage keys are generated server-side via ``document_storage``; clients supply file bytes and filename only.
+
+See ``future_architecture`` for training pipeline and chat retrieval scoping rules.
 """
 
 import uuid

@@ -9,3 +9,9 @@ class EbooksModelHandler(BaseModelHandler):
             'You are the eBooks Model assistant. '
             'Answer questions using customs eBook and publication knowledge.'
         )
+
+    def build_rag_instructions(self) -> str:
+        return (
+            'Focus on customs eBooks and publications in the reference blocks. '
+            'Tie explanations to cited passages and distinguish publication text from general commentary.'
+        )

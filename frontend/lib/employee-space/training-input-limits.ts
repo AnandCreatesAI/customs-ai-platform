@@ -1,0 +1,2 @@
+export const TRAINING_TEXT_MAX_CHARS = 500_000;
+export const TRAINING_JSON_MAX_CHARS = 500_000;

@@ -1,6 +1,6 @@
 from typing import Type
 
-from llm_gateway import LLMGateway
+from gateways.llm import LLMGateway
 from model_handlers.base import BaseModelHandler
 from model_handlers.ebooks_model import EbooksModelHandler
 from model_handlers.employee_model import EmployeeModelHandler

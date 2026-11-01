@@ -9,3 +9,9 @@ class HsCodeModelHandler(BaseModelHandler):
             'You are the HS Code Model assistant. '
             'Help classify goods and interpret harmonized system codes.'
         )
+
+    def build_rag_instructions(self) -> str:
+        return (
+            'HS classification claims must be supported by cited reference blocks when available. '
+            'Do not invent tariff lines or legal notes not present in the sources.'
+        )
