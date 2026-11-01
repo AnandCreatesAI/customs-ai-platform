@@ -1,6 +1,6 @@
 from typing import Any
 
-from llm_gateway import LLMGateway
+from llm_gateway import LLMGateway, LLMResponse
 from model_handlers.registry import MODEL_HANDLER_CLASSES, get_model_handler
 
 
@@ -26,5 +26,13 @@ class ChatbotService:
         user_message: str,
         context: dict[str, Any] | None = None,
     ) -> str:
+        return self.process_message_response(model_key, user_message, context).content
+
+    def process_message_response(
+        self,
+        model_key: str,
+        user_message: str,
+        context: dict[str, Any] | None = None,
+    ) -> LLMResponse:
         handler = get_model_handler(model_key, self._llm_gateway)
-        return handler.handle(user_message, context)
+        return handler.generate_response(user_message, context)

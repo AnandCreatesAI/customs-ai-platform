@@ -17,6 +17,10 @@ class LLMGateway:
     def provider_name(self) -> str:
         return self._provider.provider_name
 
+    @property
+    def model_name(self) -> str | None:
+        return getattr(self._provider, 'model_name', None)
+
     def generate(self, request: LLMRequest) -> LLMResponse:
         if not request.prompt or not request.prompt.strip():
             raise ValueError('LLM request prompt cannot be empty')

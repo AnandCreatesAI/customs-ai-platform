@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from llm_gateway import LLMGateway, LLMRequest
+from llm_gateway import LLMGateway, LLMRequest, LLMResponse
 
 
 class BaseModelHandler(ABC):
@@ -16,11 +16,17 @@ class BaseModelHandler(ABC):
     def build_system_prompt(self) -> str:
         raise NotImplementedError
 
-    def handle(self, user_message: str, context: dict[str, Any] | None = None) -> str:
+    def generate_response(
+        self,
+        user_message: str,
+        context: dict[str, Any] | None = None,
+    ) -> LLMResponse:
         request = LLMRequest(
             prompt=user_message,
             system_prompt=self.build_system_prompt(),
             metadata={'model_key': self.model_key, 'context': context or {}},
         )
-        response = self.llm_gateway.generate(request)
-        return response.content
+        return self.llm_gateway.generate(request)
+
+    def handle(self, user_message: str, context: dict[str, Any] | None = None) -> str:
+        return self.generate_response(user_message, context).content
