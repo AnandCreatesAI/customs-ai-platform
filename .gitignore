@@ -17,6 +17,7 @@ env/
 
 # Django
 *.log
+backend/.celery-dev-worker.pid
 db.sqlite3
 media/
 staticfiles/

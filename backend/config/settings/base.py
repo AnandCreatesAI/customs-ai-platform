@@ -40,6 +40,7 @@ AUTH_USER_MODEL = 'authentication.User'
 # Application definition
 
 INSTALLED_APPS = [
+    'config.apps.ProjectConfig',
     'daphne',
     'apps.api_compat.apps.ApiCompatConfig',
     'apps.frontend_static.apps.FrontendStaticConfig',
@@ -332,6 +333,19 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Local runserver may spawn a Celery worker subprocess (see config.management.commands.runserver).
+CELERY_AUTO_START_WORKER = (
+    os.environ.get('CELERY_AUTO_START_WORKER', 'true' if DEBUG else 'false').lower() == 'true'
+)
+CELERY_DEV_WORKER_LOGLEVEL = os.environ.get('CELERY_DEV_WORKER_LOGLEVEL', 'info').strip()
+CELERY_DEV_WORKER_POOL = os.environ.get('CELERY_DEV_WORKER_POOL', 'solo').strip()
+CELERY_DEV_WORKER_CONCURRENCY = int(os.environ.get('CELERY_DEV_WORKER_CONCURRENCY', '1'))
+CELERY_DEV_WORKER_HOSTNAME = os.environ.get(
+    'CELERY_DEV_WORKER_HOSTNAME',
+    'dev_runserver@%h',
+).strip()
+CELERY_DEV_WORKER_PID_FILE = BASE_DIR / '.celery-dev-worker.pid'
 
 TRAINING_JOB_STALE_PROCESSING_SECONDS = int(
     os.environ.get('TRAINING_JOB_STALE_PROCESSING_SECONDS', '1800')

@@ -82,6 +82,7 @@ class TrainingJobSummarySerializer(serializers.ModelSerializer):
             'status',
             'progress',
             'current_stage',
+            'error_message',
             'retry_count',
             'dispatch_error',
             'created_at',

@@ -1,5 +1,6 @@
 import type { BusinessModelKey } from '@/lib/dashboard/business-models';
 import type { DocumentBackendStatus } from '@/services/document-service';
+import type { TrainingJobStatus } from '@/services/training-job-service';
 
 /** Local-only status for files/text/json not yet submitted to the backend. */
 export type StagedDocumentStatus = 'pending';
@@ -20,6 +21,17 @@ export type TrainingFileMetadata = {
   modelKey: BusinessModelKey;
 };
 
+export type DocumentTrainingJobView = {
+  id: string;
+  status: TrainingJobStatus;
+  progress: number;
+  currentStage: string;
+  dispatchError: string | null;
+  errorMessage: string | null;
+  updatedAt: string;
+  retryCount: number;
+};
+
 export type UserTrainingDocument = {
   id: string;
   ownerUserId: number;
@@ -33,6 +45,7 @@ export type UserTrainingDocument = {
   sourceType: TrainingSourceType;
   isDemo: boolean;
   isStagedSelection?: boolean;
+  trainingJob?: DocumentTrainingJobView;
 };
 
 export type RecentDocumentActivity = {

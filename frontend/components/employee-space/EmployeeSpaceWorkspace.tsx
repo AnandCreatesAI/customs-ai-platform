@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { attachTrainingJobsToDocuments } from '@/lib/employee-space/merge-document-jobs';
+import { useTrainingJobsPoll } from '@/lib/employee-space/use-training-jobs-poll';
+import {
+  createTrainingJobs,
+  type TrainingJobSummary,
+} from '@/services/training-job-service';
 
 import { ModelSelectionPanel } from '@/components/employee-space/ModelSelectionPanel';
 import { MyDocumentsPanel } from '@/components/employee-space/MyDocumentsPanel';
@@ -23,13 +30,11 @@ import {
   TRAINING_JSON_MAX_CHARS,
   TRAINING_TEXT_MAX_CHARS,
 } from '@/lib/employee-space/training-input-limits';
+import type { TrainModelModalStep } from '@/components/employee-space/TrainModelModals';
 import type { TrainingFileMetadata, TrainingSourceType, UserTrainingDocument } from '@/lib/employee-space/types';
 
 const MODEL_CHANGE_CONFIRM_MESSAGE =
   'Changing the model will clear files, text, and JSON prepared for the current model. Continue?';
-
-const TRAINING_SAVED_NOTICE =
-  'Documents were saved to your account. Model training (indexing and execution) is not available in this phase.';
 
 type EmployeeSpaceWorkspaceProps = {
   user: AuthUser;
@@ -51,7 +56,7 @@ function clearPendingTraining() {
 
 export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
   const [selectedModelKey, setSelectedModelKey] = useState<BusinessModelKey | null>(null);
-  const [trainingType, setTrainingType] = useState<TrainingSourceType>('file');
+  const [trainModalStep, setTrainModalStep] = useState<TrainModelModalStep>(null);
   const [selectedFiles, setSelectedFiles] = useState<TrainingFileMetadata[]>([]);
   const [fileTitle, setFileTitle] = useState('');
   const [fileError, setFileError] = useState<string | null>(null);
@@ -61,8 +66,8 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
   const [textError, setTextError] = useState<string | null>(null);
   const [jsonTitle, setJsonTitle] = useState('');
   const [jsonContent, setJsonContent] = useState('');
-  const [integrationNotice, setIntegrationNotice] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [jsonError, setJsonError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [documents, setDocuments] = useState<UserTrainingDocument[]>([]);
@@ -74,9 +79,45 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
 
   const jsonValidation = useMemo(() => validateTrainingJson(jsonContent), [jsonContent]);
 
+  const {
+    trainingJobs,
+    trainingJobsError,
+    reloadTrainingJobs,
+    hasActiveTrainingJobs,
+  } = useTrainingJobsPoll(selectedModelKey);
+
+  const documentsWithJobs = useMemo(
+    () => attachTrainingJobsToDocuments(documents, trainingJobs),
+    [documents, trainingJobs],
+  );
+
   const recentActivity = useMemo(
-    () => mapDocumentsToRecentActivity(documents),
-    [documents],
+    () => mapDocumentsToRecentActivity(documentsWithJobs),
+    [documentsWithJobs],
+  );
+
+  const dispatchTrainingJobs = useCallback(
+    async (modelKey: BusinessModelKey, documentIds: string[]): Promise<string | null> => {
+      if (documentIds.length === 0) {
+        return null;
+      }
+      const result = await createTrainingJobs({
+        businessModel: modelKey,
+        documentIds,
+      });
+      if (!result.ok) {
+        return result.message;
+      }
+      await reloadTrainingJobs();
+      const dispatchIssues = result.jobs
+        .filter((job: TrainingJobSummary) => job.dispatch_error?.trim())
+        .map((job) => `${job.document_id}: ${job.dispatch_error.trim()}`);
+      if (dispatchIssues.length > 0) {
+        return `Training queued but Celery dispatch failed for some jobs. ${dispatchIssues.join(' ')}`;
+      }
+      return null;
+    },
+    [reloadTrainingJobs],
   );
 
   const loadDocuments = useCallback(
@@ -129,6 +170,14 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
     [user.id],
   );
 
+  const hadActiveJobsRef = useRef(false);
+  useEffect(() => {
+    if (hadActiveJobsRef.current && !hasActiveTrainingJobs && selectedModelKey) {
+      void loadDocuments(selectedModelKey, 1, false);
+    }
+    hadActiveJobsRef.current = hasActiveTrainingJobs;
+  }, [hasActiveTrainingJobs, selectedModelKey, loadDocuments]);
+
   const hasPendingInput =
     selectedFiles.length > 0 ||
     fileTitle.trim().length > 0 ||
@@ -162,30 +211,35 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
         setTextError(cleared.textError);
       }
       setSelectedModelKey(key);
-      setIntegrationNotice(null);
       setSubmitError(null);
+      setJsonError(null);
       void loadDocuments(key, 1, false);
+      void reloadTrainingJobs(key);
     },
-    [hasPendingInput, isSubmitting, loadDocuments, selectedModelKey],
+    [hasPendingInput, isSubmitting, loadDocuments, reloadTrainingJobs, selectedModelKey],
   );
 
-  const canStartTraining = useMemo(() => {
+  const canSubmitFile = useMemo(() => {
     if (!selectedModelKey || isSubmitting) {
       return false;
     }
     const hasFiles = selectedFiles.some((file) => file.modelKey === selectedModelKey);
-    const hasText = textContent.trim().length > 0;
-    const hasValidJson = jsonValidation.status === 'valid';
-    const filesReady = !hasFiles || fileTitle.trim().length > 0;
-    return filesReady && (hasFiles || hasText || hasValidJson);
-  }, [
-    fileTitle,
-    isSubmitting,
-    jsonValidation.status,
-    selectedFiles,
-    selectedModelKey,
-    textContent,
-  ]);
+    return hasFiles && fileTitle.trim().length > 0;
+  }, [fileTitle, isSubmitting, selectedFiles, selectedModelKey]);
+
+  const canSubmitText = useMemo(() => {
+    if (!selectedModelKey || isSubmitting) {
+      return false;
+    }
+    return textTitle.trim().length > 0 && textContent.trim().length > 0;
+  }, [isSubmitting, selectedModelKey, textContent, textTitle]);
+
+  const canSubmitJson = useMemo(() => {
+    if (!selectedModelKey || isSubmitting) {
+      return false;
+    }
+    return jsonTitle.trim().length > 0 && jsonValidation.status === 'valid';
+  }, [isSubmitting, jsonTitle, jsonValidation.status, selectedModelKey]);
 
   const stagedTextLabel = useMemo(() => {
     if (textContent.trim().length === 0) {
@@ -206,17 +260,19 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
       setFileError('Select a model before uploading files.');
       return;
     }
+    const modelKey = selectedModelKey;
+    const incomingFiles = Array.from(incoming);
     setSelectedFiles((current) => {
-      const { files, errors } = mergeTrainingFiles(current, incoming, selectedModelKey);
+      const { files, errors } = mergeTrainingFiles(current, incomingFiles, modelKey);
       setFileError(errors.length > 0 ? errors.join(' ') : null);
       return files;
     });
   }
 
-  async function handleStartTraining() {
-    setIntegrationNotice(null);
+  async function handleSubmitTraining(source: TrainingSourceType) {
     setSubmitError(null);
     setTextError(null);
+    setJsonError(null);
     setFileTitleError(null);
     setFileError(null);
 
@@ -225,48 +281,21 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
     }
 
     const modelKey = selectedModelKey;
-    const filesForModel = selectedFiles.filter((file) => file.modelKey === modelKey);
-    const hasFiles = filesForModel.length > 0;
-    const hasText = textContent.trim().length > 0;
-    const hasValidJson = jsonValidation.status === 'valid';
 
-    if (!hasFiles && !hasText && !hasValidJson) {
-      return;
-    }
-
-    if (hasFiles && fileTitle.trim().length === 0) {
-      setFileTitleError('Enter a file title for the selected documents.');
-      return;
-    }
-
-    if (hasText) {
-      if (!textTitle.trim()) {
-        setTextError('Title is required.');
+    if (source === 'file') {
+      const filesForModel = selectedFiles.filter((file) => file.modelKey === modelKey);
+      if (filesForModel.length === 0) {
         return;
       }
-      if (textContent.length > TRAINING_TEXT_MAX_CHARS) {
-        setTextError('Text content exceeds the configured character limit.');
+      if (fileTitle.trim().length === 0) {
+        setFileTitleError('Enter a file title for the selected documents.');
         return;
       }
-    }
 
-    if (hasValidJson) {
-      if (!jsonTitle.trim()) {
-        setSubmitError('JSON title is required.');
-        return;
-      }
-      if (jsonContent.length > TRAINING_JSON_MAX_CHARS) {
-        setSubmitError('JSON content exceeds the configured character limit.');
-        return;
-      }
-    }
+      setIsSubmitting(true);
+      const uploadErrors: string[] = [];
 
-    setIsSubmitting(true);
-    let anySuccess = false;
-    const uploadErrors: string[] = [];
-
-    try {
-      if (hasFiles) {
+      try {
         const uploadResult = await uploadTrainingFiles({
           businessModel: modelKey,
           title: fileTitle.trim(),
@@ -282,10 +311,11 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
         }
 
         const createdNames = new Set<string>();
+        const createdDocumentIds: string[] = [];
         for (const entry of uploadResult.data.results) {
           if (entry.status === 'created') {
-            anySuccess = true;
             createdNames.add(entry.document.original_filename);
+            createdDocumentIds.push(entry.document.id);
           } else {
             uploadErrors.push(`${entry.filename}: ${entry.error}`);
           }
@@ -296,19 +326,43 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
         }
 
         if (createdNames.size > 0) {
+          await loadDocuments(modelKey, 1, false);
+          const trainError = await dispatchTrainingJobs(modelKey, createdDocumentIds);
+          if (trainError) {
+            setSubmitError(trainError);
+          }
           setSelectedFiles((current) =>
             current.filter(
-              (file) =>
-                file.modelKey !== modelKey || !createdNames.has(file.name),
+              (file) => file.modelKey !== modelKey || !createdNames.has(file.name),
             ),
           );
           if (uploadErrors.length === 0) {
             setFileTitle('');
+            setTrainModalStep(null);
           }
         }
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    if (source === 'text') {
+      if (!textTitle.trim()) {
+        setTextError('Title is required.');
+        return;
+      }
+      if (textContent.trim().length === 0) {
+        setTextError('Enter training text content.');
+        return;
+      }
+      if (textContent.length > TRAINING_TEXT_MAX_CHARS) {
+        setTextError('Text content exceeds the configured character limit.');
+        return;
       }
 
-      if (hasText) {
+      setIsSubmitting(true);
+      try {
         const textResult = await submitTrainingText({
           businessModel: modelKey,
           title: textTitle.trim(),
@@ -318,32 +372,56 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
           setTextError(textResult.message);
           return;
         }
-        anySuccess = true;
         setTextTitle('');
         setTextContent('');
+        await loadDocuments(modelKey, 1, false);
+        const trainError = await dispatchTrainingJobs(modelKey, [textResult.data.document.id]);
+        if (trainError) {
+          setSubmitError(trainError);
+        }
+        setTrainModalStep(null);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    if (source === 'json') {
+      if (!jsonTitle.trim()) {
+        setJsonError('JSON title is required.');
+        return;
+      }
+      if (jsonValidation.status !== 'valid') {
+        setJsonError('Enter valid JSON before saving.');
+        return;
+      }
+      if (jsonContent.length > TRAINING_JSON_MAX_CHARS) {
+        setJsonError('JSON content exceeds the configured character limit.');
+        return;
       }
 
-      if (hasValidJson) {
+      setIsSubmitting(true);
+      try {
         const jsonResult = await submitTrainingJson({
           businessModel: modelKey,
           title: jsonTitle.trim(),
           content: jsonContent.trim(),
         });
         if (!jsonResult.ok) {
-          setTextError(jsonResult.message);
+          setJsonError(jsonResult.message);
           return;
         }
-        anySuccess = true;
         setJsonTitle('');
         setJsonContent('');
-      }
-
-      if (anySuccess) {
         await loadDocuments(modelKey, 1, false);
-        setIntegrationNotice(TRAINING_SAVED_NOTICE);
+        const trainError = await dispatchTrainingJobs(modelKey, [jsonResult.data.document.id]);
+        if (trainError) {
+          setSubmitError(trainError);
+        }
+        setTrainModalStep(null);
+      } finally {
+        setIsSubmitting(false);
       }
-    } finally {
-      setIsSubmitting(false);
     }
   }
 
@@ -356,10 +434,15 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
       <ModelSelectionPanel selectedKey={selectedModelKey} onSelect={handleModelSelect} />
       <MyDocumentsPanel
         userId={user.id}
-        documents={documents}
+        documents={documentsWithJobs}
         documentsLoading={documentsLoading}
         documentsError={documentsError}
-        onRetryLoad={() => void loadDocuments(selectedModelKey, 1, false)}
+        trainingJobsError={trainingJobsError}
+        onRetryTrainingJobs={() => void reloadTrainingJobs()}
+        onRetryLoad={() => {
+          void loadDocuments(selectedModelKey, 1, false);
+          void reloadTrainingJobs();
+        }}
         hasMoreDocuments={hasMoreDocuments}
         onLoadMore={() => void loadDocuments(selectedModelKey, documentsPage + 1, true)}
         loadingMore={loadingMoreDocuments}
@@ -375,8 +458,8 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
       />
       <TrainingInputPanel
         selectedModelKey={selectedModelKey}
-        trainingType={trainingType}
-        onTrainingTypeChange={setTrainingType}
+        trainModalStep={trainModalStep}
+        onTrainModalStepChange={setTrainModalStep}
         fileTitle={fileTitle}
         onFileTitleChange={(value) => {
           setFileTitle(value);
@@ -403,17 +486,23 @@ export function EmployeeSpaceWorkspace({ user }: EmployeeSpaceWorkspaceProps) {
         jsonTitle={jsonTitle}
         jsonContent={jsonContent}
         jsonValidation={jsonValidation}
+        jsonError={jsonError}
         onJsonTitleChange={setJsonTitle}
-        onJsonContentChange={setJsonContent}
+        onJsonContentChange={(value) => {
+          setJsonContent(value);
+          setJsonError(null);
+        }}
         onClearJson={() => {
           setJsonTitle('');
           setJsonContent('');
+          setJsonError(null);
         }}
-        canStartTraining={canStartTraining}
+        canSubmitFile={canSubmitFile}
+        canSubmitText={canSubmitText}
+        canSubmitJson={canSubmitJson}
         isSubmitting={isSubmitting}
-        integrationNotice={integrationNotice}
         submitError={submitError}
-        onStartTraining={() => void handleStartTraining()}
+        onSubmitTraining={(source) => void handleSubmitTraining(source)}
       />
     </div>
   );

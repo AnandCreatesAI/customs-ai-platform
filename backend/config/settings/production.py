@@ -6,6 +6,8 @@ from .base import *  # noqa: F403
 
 DEBUG = False
 
+CELERY_AUTO_START_WORKER = False
+
 SECRET_KEY = os.environ['SECRET_KEY']
 
 ALLOWED_HOSTS = _split_env_list(  # noqa: F405

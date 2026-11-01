@@ -25,7 +25,8 @@ export function EmployeeSpace({ user }: EmployeeSpaceProps) {
           </Link>
           <h1 className="text-xl font-semibold tracking-tight text-zinc-900">Employee Space</h1>
           <p className="text-sm text-zinc-600">
-            Unified training workspace (frontend demonstration — no backend training yet)
+            Upload training data, monitor pipeline progress, and manage documents per business
+            model.
           </p>
         </div>
       </header>

@@ -1,26 +1,20 @@
+import {
+  documentStatusBadge,
+  toneToBadgeClassName,
+  trainingJobBadge,
+  type TrainingBadgeTone,
+} from '@/lib/employee-space/training-job-ui';
 import type { DocumentDisplayStatus, TrainingStatus } from '@/lib/employee-space/types';
+import type { TrainingJobStatus } from '@/services/training-job-service';
 
 type BadgeStatus = DocumentDisplayStatus | TrainingStatus;
 
-const STATUS_STYLES: Record<DocumentDisplayStatus, string> = {
-  pending: 'bg-indigo-100 text-indigo-900 ring-indigo-200',
-  uploaded: 'bg-amber-100 text-amber-900 ring-amber-200',
-  processing: 'bg-amber-100 text-amber-900 ring-amber-200',
-  processed: 'bg-emerald-100 text-emerald-900 ring-emerald-200',
-  failed: 'bg-red-100 text-red-800 ring-red-200',
-  archived: 'bg-zinc-100 text-zinc-700 ring-zinc-200',
+type TrainingStatusBadgeProps = {
+  status: BadgeStatus;
+  trainingJobStatus?: TrainingJobStatus | null;
 };
 
-const STATUS_LABELS: Record<DocumentDisplayStatus, string> = {
-  pending: 'Selected',
-  uploaded: 'Uploaded',
-  processing: 'Processing',
-  processed: 'Processed',
-  failed: 'Failed',
-  archived: 'Archived',
-};
-
-function normalizeStatus(status: BadgeStatus): DocumentDisplayStatus {
+function normalizeDocumentStatus(status: BadgeStatus): DocumentDisplayStatus {
   if (status === 'running') {
     return 'processing';
   }
@@ -33,19 +27,27 @@ function normalizeStatus(status: BadgeStatus): DocumentDisplayStatus {
   return status;
 }
 
-type TrainingStatusBadgeProps = {
-  status: BadgeStatus;
-};
+export function TrainingStatusBadge({ status, trainingJobStatus }: TrainingStatusBadgeProps) {
+  let label: string;
+  let tone: TrainingBadgeTone;
 
-export function TrainingStatusBadge({ status }: TrainingStatusBadgeProps) {
-  const normalized = normalizeStatus(status);
+  if (trainingJobStatus) {
+    const jobBadge = trainingJobBadge(trainingJobStatus);
+    label = jobBadge.label;
+    tone = jobBadge.tone;
+  } else {
+    const docBadge = documentStatusBadge(normalizeDocumentStatus(status));
+    label = docBadge.label;
+    tone = docBadge.tone;
+  }
+
   return (
     <span
       data-testid="training-status-badge"
-      data-status={normalized}
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${STATUS_STYLES[normalized]}`}
+      data-status={trainingJobStatus ?? normalizeDocumentStatus(status)}
+      className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${toneToBadgeClassName(tone)}`}
     >
-      {STATUS_LABELS[normalized]}
+      {label}
     </span>
   );
 }

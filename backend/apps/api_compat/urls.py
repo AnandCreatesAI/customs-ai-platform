@@ -18,12 +18,21 @@ from apps.documents.views import (
     DocumentTextInputView,
     DocumentUploadView,
 )
+from apps.training_jobs.views import (
+    TrainingJobCancelView,
+    TrainingJobDetailView,
+    TrainingJobListCreateView,
+    TrainingJobRetryView,
+)
 from apps.api_compat.wrappers import wrap_view
 
 CompatConversationDetailView = wrap_view(ConversationDetailView)
 CompatConversationMessageListView = wrap_view(ConversationMessageListView)
 CompatMessageFeedbackView = wrap_view(MessageFeedbackView)
 CompatDocumentDetailView = wrap_view(DocumentDetailView)
+CompatTrainingJobDetailView = wrap_view(TrainingJobDetailView)
+CompatTrainingJobRetryView = wrap_view(TrainingJobRetryView)
+CompatTrainingJobCancelView = wrap_view(TrainingJobCancelView)
 
 urlpatterns = [
     path('auth/csrf', CsrfView.as_view(), name='compat-auth-csrf'),
@@ -57,5 +66,21 @@ urlpatterns = [
         'documents/<str:document_id>',
         CompatDocumentDetailView.as_view(),
         name='compat-document-detail',
+    ),
+    path('training/jobs', TrainingJobListCreateView.as_view(), name='compat-training-job-list'),
+    path(
+        'training/jobs/<str:job_id>',
+        CompatTrainingJobDetailView.as_view(),
+        name='compat-training-job-detail',
+    ),
+    path(
+        'training/jobs/<str:job_id>/retry',
+        CompatTrainingJobRetryView.as_view(),
+        name='compat-training-job-retry',
+    ),
+    path(
+        'training/jobs/<str:job_id>/cancel',
+        CompatTrainingJobCancelView.as_view(),
+        name='compat-training-job-cancel',
     ),
 ]

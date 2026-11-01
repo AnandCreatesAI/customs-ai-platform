@@ -9,7 +9,7 @@ class InvalidUuidMixin:
     invalid_detail: str = 'Invalid id.'
 
     def dispatch(self, request, *args, **kwargs):
-        for key in ('conversation_id', 'message_id', 'document_id'):
+        for key in ('conversation_id', 'message_id', 'document_id', 'job_id'):
             if key in kwargs and not is_valid_uuid(str(kwargs[key])):
                 detail = self.invalid_detail
                 if key == 'conversation_id':
@@ -18,6 +18,8 @@ class InvalidUuidMixin:
                     detail = 'Invalid message id.'
                 elif key == 'document_id':
                     detail = 'Invalid document id.'
+                elif key == 'job_id':
+                    detail = 'Invalid training job id.'
                 return JsonResponse({'detail': detail}, status=400)
         return super().dispatch(request, *args, **kwargs)
 

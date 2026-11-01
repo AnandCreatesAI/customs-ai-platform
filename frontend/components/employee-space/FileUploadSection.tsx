@@ -2,9 +2,11 @@
 
 import { FileDropzone } from '@/components/employee-space/FileDropzone';
 import { SelectedFileList } from '@/components/employee-space/SelectedFileList';
+import type { BusinessModelKey } from '@/lib/dashboard/business-models';
 import type { TrainingFileMetadata } from '@/lib/employee-space/types';
 
 type FileUploadSectionProps = {
+  businessModelKey?: BusinessModelKey | null;
   fileTitle: string;
   onFileTitleChange: (value: string) => void;
   fileTitleError: string | null;
@@ -16,6 +18,7 @@ type FileUploadSectionProps = {
 };
 
 export function FileUploadSection({
+  businessModelKey = null,
   fileTitle,
   onFileTitleChange,
   fileTitleError,
@@ -25,7 +28,11 @@ export function FileUploadSection({
   onFilesSelected,
   onRemoveFile,
 }: FileUploadSectionProps) {
-  const showTitleRequired = selectedFiles.length > 0 && fileTitle.trim().length === 0;
+  const filesForModel =
+    businessModelKey === null
+      ? selectedFiles
+      : selectedFiles.filter((file) => file.modelKey === businessModelKey);
+  const showTitleRequired = filesForModel.length > 0 && fileTitle.trim().length === 0;
 
   return (
     <div className="space-y-4" data-testid="file-upload-section">
@@ -60,7 +67,7 @@ export function FileUploadSection({
       />
 
       <SelectedFileList
-        files={selectedFiles}
+        files={filesForModel}
         groupTitle={fileTitle.trim() || null}
         onRemove={onRemoveFile}
       />

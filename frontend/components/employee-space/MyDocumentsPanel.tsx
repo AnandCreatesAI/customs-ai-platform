@@ -20,6 +20,8 @@ type MyDocumentsPanelProps = {
   documents: UserTrainingDocument[];
   documentsLoading: boolean;
   documentsError: string | null;
+  trainingJobsError?: string | null;
+  onRetryTrainingJobs?: () => void;
   onRetryLoad: () => void;
   hasMoreDocuments: boolean;
   onLoadMore: () => void;
@@ -61,6 +63,8 @@ export function MyDocumentsPanel({
   documents,
   documentsLoading,
   documentsError,
+  trainingJobsError = null,
+  onRetryTrainingJobs,
   onRetryLoad,
   hasMoreDocuments,
   onLoadMore,
@@ -170,6 +174,25 @@ export function MyDocumentsPanel({
           >
             Retry
           </button>
+        </div>
+      ) : null}
+
+      {trainingJobsError ? (
+        <div
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          role="alert"
+        >
+          <p data-testid="training-jobs-load-error">{trainingJobsError}</p>
+          {onRetryTrainingJobs ? (
+            <button
+              type="button"
+              data-testid="training-jobs-retry-button"
+              onClick={onRetryTrainingJobs}
+              className="mt-2 cursor-pointer text-sm font-medium text-amber-950 underline"
+            >
+              Retry job status
+            </button>
+          ) : null}
         </div>
       ) : null}
 
