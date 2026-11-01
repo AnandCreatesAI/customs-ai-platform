@@ -1,12 +1,20 @@
 import type { NextConfig } from "next";
 
+const djangoDevOrigin =
+  process.env.DJANGO_API_BASE_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8000";
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  output: "export",
+  trailingSlash: false,
+  images: {
+    unoptimized: true,
+  },
   experimental: {
     agentFeedback: true,
   },
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Static export (output: "export") is incompatible with PPR / cacheComponents.
+  cacheComponents: false,
+  partialPrefetching: false,
   turbopack: {
     rules: {
       "*.css": {
@@ -14,6 +22,18 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  /** Two-server rollback: `npm run dev` proxies /api to Django without Next BFF routes. */
+  async rewrites() {
+    if (process.env.NODE_ENV === "development") {
+      return [
+        {
+          source: "/api/:path*",
+          destination: `${djangoDevOrigin}/api/:path*`,
+        },
+      ];
+    }
+    return [];
   },
 };
 

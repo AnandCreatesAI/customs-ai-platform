@@ -1,4 +1,5 @@
 import type { BusinessModelKey } from '@/lib/dashboard/business-models';
+import { apiFetch, CHATBOT_API_TIMEOUT_MS } from '@/services/api-client';
 import {
   parseAssistantRagFromRecord,
   type AssistantRagMetadata,
@@ -132,14 +133,13 @@ export async function submitChatMessage(
   }
 
   try {
-    const response = await fetch('/api/chatbot/messages', {
+    const response = await apiFetch('/api/chatbot/messages', {
       method: 'POST',
       headers: {
-        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      credentials: 'same-origin',
       body: JSON.stringify(body),
+      timeoutMs: CHATBOT_API_TIMEOUT_MS,
     });
 
     let data: unknown = null;
@@ -192,14 +192,13 @@ export async function regenerateChatMessage(
   payload: ChatbotRegenerateRequest,
 ): Promise<RegenerateChatMessageResult> {
   try {
-    const response = await fetch('/api/chatbot/regenerate', {
+    const response = await apiFetch('/api/chatbot/regenerate', {
       method: 'POST',
       headers: {
-        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      credentials: 'same-origin',
       body: JSON.stringify(payload),
+      timeoutMs: CHATBOT_API_TIMEOUT_MS,
     });
 
     let data: unknown = null;
@@ -247,13 +246,11 @@ export async function submitMessageFeedback(
   | { ok: false; status: number; message: string; unauthenticated: boolean }
 > {
   try {
-    const response = await fetch(`/api/conversations/messages/${messageId}/feedback`, {
+    const response = await apiFetch(`/api/conversations/messages/${messageId}/feedback`, {
       method: 'PUT',
       headers: {
-        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      credentials: 'same-origin',
       body: JSON.stringify({ rating }),
     });
 

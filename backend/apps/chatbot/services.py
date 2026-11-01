@@ -10,11 +10,14 @@ from apps.chatbot.structured_output import (
 )
 from apps.rag.citations import validate_answer_citations
 from apps.rag.metadata import build_rag_message_metadata
+from apps.chatbot.public_prompts import PUBLIC_CHAT_SYSTEM_ADDON
 from apps.rag.orchestrator import run_rag_retrieval
 from apps.rag.prompts import compose_rag_system_prompt, rag_structured_output_addon
 from apps.rag.schemas import RagGroundedContext, RagNoSourcesOutcome
 from gateways.llm import LLMGateway, LLMRequest, LLMResponse
 from model_handlers.registry import MODEL_HANDLER_CLASSES, get_model_handler
+
+PUBLIC_CHAT_MODEL_KEY = 'user'
 
 
 class ChatbotService:
@@ -40,6 +43,45 @@ class ChatbotService:
         context: dict[str, Any] | None = None,
     ) -> str:
         return self.process_structured_turn(model_key, user_message, context).answer
+
+    def process_public_message_response(
+        self,
+        user_message: str,
+        context: dict[str, Any] | None = None,
+    ) -> LLMResponse:
+        """Anonymous public chat: user model only, no RAG, no private retrieval."""
+        context_data = dict(context or {})
+        context_data['public_mode'] = True
+        is_new = bool(context_data.get('is_new_conversation'))
+
+        handler = get_model_handler(PUBLIC_CHAT_MODEL_KEY, self._llm_gateway)
+        system_prompt = (
+            f'{handler.build_system_prompt().strip()}\n\n{PUBLIC_CHAT_SYSTEM_ADDON}'
+            f'{structured_output_system_addon(context_data)}'
+        )
+
+        request = LLMRequest(
+            prompt=user_message,
+            system_prompt=system_prompt,
+            metadata={'model_key': PUBLIC_CHAT_MODEL_KEY, 'context': context_data, 'public': True},
+        )
+        raw_response = self._llm_gateway.generate(request)
+        parsed = parse_structured_chat_response(
+            raw_response.content,
+            is_new_conversation=is_new,
+            user_message_for_title_fallback=user_message,
+            rag_enabled=False,
+        )
+        metadata: dict[str, Any] = {
+            'suggested_questions': parsed.suggested_questions,
+            'sources': [],
+            'evidence_status': 'not_applicable',
+            'provider': self._llm_gateway.provider_name,
+            'model': self._llm_gateway.model_name,
+        }
+        if parsed.conversation_title:
+            metadata['conversation_title'] = parsed.conversation_title
+        return LLMResponse(content=parsed.answer, metadata=metadata)
 
     def process_message_response(
         self,

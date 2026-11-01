@@ -1,4 +1,5 @@
 import type { BusinessModelKey } from '@/lib/dashboard/business-models';
+import { apiFetch } from '@/services/api-client';
 
 export type DocumentBackendStatus =
   | 'uploaded'
@@ -131,10 +132,8 @@ export async function fetchDocuments(options?: {
   }
 
   try {
-    const response = await fetch(`/api/documents?${params.toString()}`, {
+    const response = await apiFetch(`/api/documents?${params.toString()}`, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
-      credentials: 'same-origin',
       cache: 'no-store',
     });
     const data: unknown = await response.json().catch(() => null);
@@ -173,10 +172,9 @@ export async function uploadTrainingFiles(params: {
   }
 
   try {
-    const response = await fetch('/api/documents/upload', {
+    const response = await apiFetch('/api/documents/upload', {
       method: 'POST',
       body: formData,
-      credentials: 'same-origin',
     });
     const data: unknown = await response.json().catch(() => null);
     if (response.ok && typeof data === 'object' && data !== null && Array.isArray((data as UploadFilesResponse).results)) {
@@ -201,10 +199,9 @@ export async function submitTrainingText(params: {
   content: string;
 }): Promise<SubmitTextResult> {
   try {
-    const response = await fetch('/api/documents/text', {
+    const response = await apiFetch('/api/documents/text', {
       method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         business_model: params.businessModel,
         title: params.title,
@@ -234,10 +231,9 @@ export async function submitTrainingJson(params: {
   content: string;
 }): Promise<SubmitJsonResult> {
   try {
-    const response = await fetch('/api/documents/json', {
+    const response = await apiFetch('/api/documents/json', {
       method: 'POST',
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         business_model: params.businessModel,
         title: params.title,

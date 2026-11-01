@@ -19,18 +19,18 @@ function extractErrorMessage(data: unknown): string {
   return 'Unable to sign in. Please try again.';
 }
 
+import { apiFetch } from '@/services/api-client';
+
 export async function submitLogin(
   email: string,
   password: string,
 ): Promise<LoginResult> {
   try {
-    const response = await fetch('/api/auth/login', {
+    const response = await apiFetch('/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json',
       },
-      credentials: 'same-origin',
       body: JSON.stringify({ email: email.trim(), password }),
     });
 

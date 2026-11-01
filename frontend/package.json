@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:restore-bff": "node scripts/restore-next-bff.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

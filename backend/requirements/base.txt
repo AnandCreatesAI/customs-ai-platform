@@ -26,6 +26,7 @@ tiktoken==0.12.0
 qdrant-client==1.16.2
 Django==5.2.18
 django-cors-headers==4.9.0
+whitenoise==6.11.0
 djangorestframework==3.18.3
 hyperlink==21.0.0
 idna==3.20

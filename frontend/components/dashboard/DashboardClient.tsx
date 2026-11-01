@@ -4,6 +4,12 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 
 import { DashboardWorkspace } from '@/components/dashboard/DashboardWorkspace';
+import { PublicSessionNotice } from '@/components/dashboard/PublicSessionNotice';
+import { loadPublicChatStore } from '@/lib/public-chat/session-store';
+import {
+  dismissPublicSessionNotice,
+  shouldOfferPublicSessionNotice,
+} from '@/lib/public-chat/login-transition';
 import {
   fetchMe,
   submitLogout,
@@ -20,11 +26,17 @@ export function DashboardClient() {
   const [viewState, setViewState] = useState<ViewState>({ kind: 'loading' });
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [publicSessionNoticeOpen, setPublicSessionNoticeOpen] = useState(false);
+  const [publicSessionChatCount, setPublicSessionChatCount] = useState(0);
 
   const applyMeResult = useCallback(
     (result: Awaited<ReturnType<typeof fetchMe>>) => {
       if (result.ok) {
         setViewState({ kind: 'authenticated', user: result.user });
+        if (shouldOfferPublicSessionNotice()) {
+          setPublicSessionChatCount(loadPublicChatStore().conversations.length);
+          setPublicSessionNoticeOpen(true);
+        }
         return;
       }
 
@@ -67,7 +79,8 @@ export function DashboardClient() {
     setIsLoggingOut(false);
 
     if (result.ok) {
-      router.replace('/login');
+      dismissPublicSessionNotice();
+      router.replace('/');
       router.refresh();
       return;
     }
@@ -111,12 +124,20 @@ export function DashboardClient() {
   }
 
   return (
-    <DashboardWorkspace
-      user={viewState.user}
-      onLogout={handleLogout}
-      isLoggingOut={isLoggingOut}
-      logoutError={logoutError}
-      onSessionExpired={handleSessionExpired}
-    />
+    <>
+      {publicSessionNoticeOpen ? (
+        <PublicSessionNotice
+          chatCount={publicSessionChatCount}
+          onContinue={() => setPublicSessionNoticeOpen(false)}
+        />
+      ) : null}
+      <DashboardWorkspace
+        user={viewState.user}
+        onLogout={handleLogout}
+        isLoggingOut={isLoggingOut}
+        logoutError={logoutError}
+        onSessionExpired={handleSessionExpired}
+      />
+    </>
   );
 }

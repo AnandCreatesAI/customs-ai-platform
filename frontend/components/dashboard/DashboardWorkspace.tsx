@@ -288,25 +288,6 @@ export function DashboardWorkspace({
     setStickToBottomKey((value) => value + 1);
   }, [applyActiveConversationId, bumpChatSession]);
 
-  const handleDeleteConversation = useCallback(
-    async (conversation: ConversationSummary) => {
-      const result = await deleteConversation(conversation.id);
-      if (result.ok) {
-        setConversations((current) => current.filter((entry) => entry.id !== conversation.id));
-        if (activeConversationIdRef.current === conversation.id) {
-          resetToNewChat();
-        }
-        return;
-      }
-      if (result.unauthenticated) {
-        onSessionExpired();
-        return;
-      }
-      setConversationsError(result.message);
-    },
-    [onSessionExpired, resetToNewChat],
-  );
-
   function handleModelSelect(nextModelKey: BusinessModelKey) {
     if (
       shouldResetConversationForModelChange(
@@ -325,6 +306,25 @@ export function DashboardWorkspace({
     setSelectedModelKey(nextModelKey);
     setModelSelectionError(null);
   }
+
+  const handleDeleteConversation = useCallback(
+    async (conversation: ConversationSummary) => {
+      const result = await deleteConversation(conversation.id);
+      if (result.ok) {
+        setConversations((current) => current.filter((entry) => entry.id !== conversation.id));
+        if (activeConversationIdRef.current === conversation.id) {
+          resetToNewChat();
+        }
+        return;
+      }
+      if (result.unauthenticated) {
+        onSessionExpired();
+        return;
+      }
+      setConversationsError(result.message);
+    },
+    [onSessionExpired, resetToNewChat],
+  );
 
   const handleSendMessage = useCallback(
     async (message: string) => {
@@ -375,6 +375,9 @@ export function DashboardWorkspace({
         });
         applyActiveConversationId(result.data.conversation_id);
         setConversationModelKey(
+          resolveModelKeyFromConversation(result.data.model_key, selectedModelKey),
+        );
+        setSelectedModelKey(
           resolveModelKeyFromConversation(result.data.model_key, selectedModelKey),
         );
         setComposerDraft('');
@@ -567,8 +570,10 @@ export function DashboardWorkspace({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <DashboardHeader
+          mode="authenticated"
           selectedModelKey={selectedModelKey}
           onModelSelect={handleModelSelect}
+          showEmployeeSpace
           onToggleMobileSidebar={() => setMobileSidebarOpen((open) => !open)}
           desktopSidebarCollapsed={desktopSidebarCollapsed}
           onExpandDesktopSidebar={() => setDesktopSidebarCollapsed(false)}

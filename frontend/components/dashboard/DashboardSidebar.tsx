@@ -1,6 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
+
+import { markLoginFromPublicChat } from '@/lib/public-chat/login-transition';
 
 import {
   LogoutIcon,
@@ -19,7 +22,8 @@ import {
 } from '@/lib/platform-primary';
 
 type DashboardSidebarProps = {
-  user: AuthUser;
+  variant?: 'authenticated' | 'public';
+  user?: AuthUser;
   conversations: ConversationSummary[];
   conversationsLoading: boolean;
   conversationsError: string | null;
@@ -47,6 +51,7 @@ function SectionHeading({ children }: { children: string }) {
 }
 
 export function DashboardSidebar({
+  variant = 'authenticated',
   user,
   conversations,
   conversationsLoading,
@@ -115,7 +120,9 @@ export function DashboardSidebar({
           <p className="truncate text-sm font-semibold tracking-tight text-zinc-900">
             Customs AI Platform
           </p>
-          <p className="truncate text-xs text-zinc-500">Enterprise workspace</p>
+          <p className="truncate text-xs text-zinc-500">
+            {variant === 'public' ? 'Public chat session' : 'Enterprise workspace'}
+          </p>
         </div>
         {showCollapseControl ? (
           <button
@@ -185,11 +192,15 @@ export function DashboardSidebar({
               onLoadMore={onLoadMoreConversations}
               listTestId="recent-chats-list"
               emptyMessage={
-                isFiltering
-                  ? 'No matching conversations in your history.'
-                  : conversations.length > 0 && recent.length === 0
-                    ? 'No recent conversations. Pinned chats appear above.'
-                    : undefined
+                variant === 'public'
+                  ? isFiltering
+                    ? 'No matching chats in this session.'
+                    : 'Chats in this browser session appear here. Sign in to save history.'
+                  : isFiltering
+                    ? 'No matching conversations in your history.'
+                    : conversations.length > 0 && recent.length === 0
+                      ? 'No recent conversations. Pinned chats appear above.'
+                      : undefined
               }
             />
           </div>
@@ -197,25 +208,40 @@ export function DashboardSidebar({
       </div>
 
       <div className="border-t border-zinc-200/90 p-3">
-        <div className="mb-2 truncate rounded-lg border border-zinc-100 bg-zinc-50/80 px-3 py-2.5 text-xs text-zinc-600">
-          <p className="truncate font-medium text-zinc-900">{user.email}</p>
-          <p className="capitalize text-zinc-500">{user.role}</p>
-        </div>
-        {logoutError ? (
-          <p className="mb-2 px-2 text-xs text-red-600" role="alert">
-            {logoutError}
-          </p>
-        ) : null}
-        <button
-          type="button"
-          data-testid="logout-button"
-          disabled={isLoggingOut}
-          onClick={onLogout}
-          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-60"
-        >
-          <LogoutIcon className="h-4 w-4" />
-          {isLoggingOut ? 'Signing out…' : 'Log out'}
-        </button>
+        {variant === 'public' ? (
+          <Link
+            href="/login"
+            data-testid="sidebar-login"
+            className={`w-full ${platformPrimaryButtonClassName}`}
+            onClick={() => markLoginFromPublicChat()}
+          >
+            Sign in for saved history
+          </Link>
+        ) : (
+          <>
+            {user ? (
+              <div className="mb-2 truncate rounded-lg border border-zinc-100 bg-zinc-50/80 px-3 py-2.5 text-xs text-zinc-600">
+                <p className="truncate font-medium text-zinc-900">{user.email}</p>
+                <p className="capitalize text-zinc-500">{user.role}</p>
+              </div>
+            ) : null}
+            {logoutError ? (
+              <p className="mb-2 px-2 text-xs text-red-600" role="alert">
+                {logoutError}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              data-testid="logout-button"
+              disabled={isLoggingOut}
+              onClick={onLogout}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 disabled:opacity-60"
+            >
+              <LogoutIcon className="h-4 w-4" />
+              {isLoggingOut ? 'Signing out…' : 'Log out'}
+            </button>
+          </>
+        )}
       </div>
     </aside>
   );

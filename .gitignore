@@ -27,6 +27,7 @@ var/extraction_temp/
 # Node
 node_modules/
 .next/
+frontend/out/
 out/
 dist/
 build/

@@ -34,8 +34,6 @@ SECRET_KEY = os.environ.get(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
 AUTH_USER_MODEL = 'authentication.User'
 
 
@@ -43,6 +41,8 @@ AUTH_USER_MODEL = 'authentication.User'
 
 INSTALLED_APPS = [
     'daphne',
+    'apps.api_compat.apps.ApiCompatConfig',
+    'apps.frontend_static.apps.FrontendStaticConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -68,6 +68,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -159,6 +160,19 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+FRONTEND_EXPORT_ROOT = PROJECT_ROOT / 'frontend' / 'out'
+
+WHITENOISE_ROOT = FRONTEND_EXPORT_ROOT
+WHITENOISE_MAX_AGE = 31536000 if not DEBUG else 0
+WHITENOISE_INDEX_FILE = False
+WHITENOISE_AUTOREFRESH = DEBUG
+
+# Long chatbot requests (legacy BFF proxy used 90s).
+CHATBOT_REQUEST_TIMEOUT_SECONDS = int(
+    os.environ.get('CHATBOT_REQUEST_TIMEOUT_SECONDS', '90'),
+)
 
 # Document binary storage (Phase 0 — local filesystem; S3-compatible backend via env)
 DOCUMENT_STORAGE_ALIAS = 'documents'
@@ -246,11 +260,17 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'auth_login': '10/minute',
         'chatbot_message': '120/hour',
+        'public_chat_message': os.environ.get('PUBLIC_CHAT_THROTTLE', '60/hour'),
         'conversation_history': '600/hour',
         'document_training': '120/hour',
         'training_jobs': '120/hour',
     },
 }
+
+PUBLIC_CHAT_ENABLED = os.environ.get('PUBLIC_CHAT_ENABLED', 'true').lower() == 'true'
+PUBLIC_CHAT_MAX_MESSAGE_LENGTH = int(
+    os.environ.get('PUBLIC_CHAT_MAX_MESSAGE_LENGTH', os.environ.get('RETRIEVAL_MAX_QUERY_LENGTH', '4000')),
+)
 
 # Session and CSRF cookies (BFF / browser integration)
 SESSION_COOKIE_HTTPONLY = True
@@ -260,21 +280,38 @@ SESSION_COOKIE_SECURE = os.environ.get('DJANGO_SESSION_COOKIE_SECURE', 'false').
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SECURE = os.environ.get('DJANGO_CSRF_COOKIE_SECURE', 'false').lower() == 'true'
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-]
+def _split_env_list(name: str, defaults: list[str]) -> list[str]:
+    raw = os.environ.get(name, '').strip()
+    if not raw:
+        return defaults
+    return [part.strip() for part in raw.split(',') if part.strip()]
 
-# CORS — explicit local frontend origins only (not open to all origins)
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-]
+
+CSRF_TRUSTED_ORIGINS = _split_env_list(
+    'DJANGO_CSRF_TRUSTED_ORIGINS',
+    [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:8000',
+        'http://127.0.0.1:8000',
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+    ],
+)
+
+# CORS — explicit origins for split dev (Next :3000); same-origin :8000 needs no CORS.
+CORS_ALLOWED_ORIGINS = _split_env_list(
+    'DJANGO_CORS_ALLOWED_ORIGINS',
+    [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+    ],
+)
 CORS_ALLOW_CREDENTIALS = True
+
+ALLOWED_HOSTS = _split_env_list('DJANGO_ALLOWED_HOSTS', ['localhost', '127.0.0.1'])
 
 # Celery + Redis (broker only; PostgreSQL remains authoritative for job state)
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0').strip()

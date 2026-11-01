@@ -1,3 +1,4 @@
+import { apiFetch } from '@/services/api-client';
 import type {
   EvidenceStatus,
   RagEvidenceDetail,
@@ -113,10 +114,8 @@ export async function fetchConversations(options?: {
   });
 
   try {
-    const response = await fetch(`/api/conversations?${params.toString()}`, {
+    const response = await apiFetch(`/api/conversations?${params.toString()}`, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
-      credentials: 'same-origin',
       cache: 'no-store',
     });
 
@@ -256,12 +255,10 @@ async function fetchConversationMessagesPage(
   });
 
   try {
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/conversations/${conversationId}/messages?${params.toString()}`,
       {
         method: 'GET',
-        headers: { Accept: 'application/json' },
-        credentials: 'same-origin',
         cache: 'no-store',
       },
     );
@@ -318,13 +315,11 @@ export async function updateConversation(
   updates: { title?: string; is_pinned?: boolean },
 ): Promise<MutateConversationResult> {
   try {
-    const response = await fetch(`/api/conversations/${conversationId}`, {
+    const response = await apiFetch(`/api/conversations/${conversationId}`, {
       method: 'PATCH',
       headers: {
-        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      credentials: 'same-origin',
       body: JSON.stringify(updates),
     });
 
@@ -368,10 +363,8 @@ export async function deleteConversation(
   conversationId: string,
 ): Promise<DeleteConversationResult> {
   try {
-    const response = await fetch(`/api/conversations/${conversationId}`, {
+    const response = await apiFetch(`/api/conversations/${conversationId}`, {
       method: 'DELETE',
-      headers: { Accept: 'application/json' },
-      credentials: 'same-origin',
     });
 
     if (response.status === 204) {

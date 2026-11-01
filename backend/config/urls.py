@@ -27,4 +27,6 @@ urlpatterns = [
     path('api/v1/knowledge/', include('apps.knowledge.urls')),
     path('api/v1/training/', include('apps.training_jobs.urls')),
     path('api/v1/retrieval/', include('apps.retrieval.urls')),
+    path('api/', include('apps.api_compat.urls')),
+    path('', include('apps.frontend_static.urls')),
 ]

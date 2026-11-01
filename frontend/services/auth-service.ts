@@ -1,3 +1,4 @@
+import { apiFetch, clearCsrfTokenCache } from '@/services/api-client';
 import type { LoginSuccessUser } from '@/services/login-service';
 
 export type AuthUser = LoginSuccessUser;
@@ -27,10 +28,8 @@ function extractDetail(data: unknown, fallback: string): string {
 
 export async function fetchMe(): Promise<MeResult> {
   try {
-    const response = await fetch('/api/auth/me', {
+    const response = await apiFetch('/api/auth/me', {
       method: 'GET',
-      headers: { Accept: 'application/json' },
-      credentials: 'same-origin',
       cache: 'no-store',
     });
 
@@ -72,13 +71,11 @@ export async function fetchMe(): Promise<MeResult> {
 
 export async function submitLogout(): Promise<LogoutResult> {
   try {
-    const response = await fetch('/api/auth/logout', {
+    const response = await apiFetch('/api/auth/logout', {
       method: 'POST',
       headers: {
-        Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      credentials: 'same-origin',
       body: JSON.stringify({}),
     });
 
@@ -90,6 +87,7 @@ export async function submitLogout(): Promise<LogoutResult> {
     }
 
     if (response.ok) {
+      clearCsrfTokenCache();
       return { ok: true };
     }
 
